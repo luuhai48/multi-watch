@@ -22,12 +22,25 @@ func main() {
 				Aliases: []string{"c"},
 				Usage:   "Command to run. Can have multiple.",
 			},
+			&cli.IntFlag{
+				Name:  "minwidth",
+				Usage: "Minimum to display the command window. Default is 50",
+				Value: 50,
+			},
+			&cli.IntFlag{
+				Name:  "minheight",
+				Usage: "Minimum to display the command window. Default is 10",
+				Value: 10,
+			},
 		},
 		Action: func(ctx *cli.Context) error {
 			cmds := ctx.StringSlice("cmd")
 			if len(cmds) == 0 {
 				return cli.Exit("No command(s) provided.", 1)
 			}
+
+			windowMinWidth = ctx.Int("minwidth")
+			windowMinHeight = ctx.Int("minheight")
 
 			pwd, err := os.Getwd()
 			if err != nil {

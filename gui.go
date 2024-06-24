@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	windowMinWidth  = 60
-	windowMinHeight = 20
+	windowMinWidth  = 50
+	windowMinHeight = 10
 	mainGui         *gocui.Gui
 )
 
@@ -48,7 +48,7 @@ func guiLayoutManager(cmds []string, dir string) func(*gocui.Gui) error {
 		}
 		winWidth := int(math.Floor(float64(maxX) / float64(numCols)))
 
-		if maxX < windowMinWidth || maxY < windowMinHeight || winWidth < windowMinWidth || winHeight < windowMinHeight {
+		if maxX < windowMinWidth || winWidth < windowMinWidth || numRows > 1 && (winHeight < windowMinHeight) {
 			v, err := g.SetView("error", 0, 0, maxX-1, maxY-1)
 			if err != nil {
 				if err != gocui.ErrUnknownView {
