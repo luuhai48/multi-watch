@@ -1,5 +1,7 @@
 # multi-watch - Run multiple commands in their own window
 
+Inspired by <https://github.com/cortesi/modd>
+
 This cli allow you to run multiple commands at once, and each command will output own their own window.
 
 This is useful if you want to watch for web development.

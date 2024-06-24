@@ -136,7 +136,7 @@ func logOutput(wg *sync.WaitGroup, fp io.ReadCloser, v *gocui.View) {
 		if err != nil {
 			return
 		}
-		writeToGuiAndUpdate(v, line)
+		writeToGuiAndUpdate(v, string(line))
 	}
 }
 

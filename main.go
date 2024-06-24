@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/jroimartin/gocui"
 	"github.com/urfave/cli/v2"
@@ -26,9 +25,9 @@ func main() {
 				return cli.Exit("No command(s) provided.", 1)
 			}
 
-			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+			pwd, err := os.Getwd()
 			if err != nil {
-				cli.Exit(err.Error(), 1)
+				return cli.Exit(err.Error(), 1)
 			}
 
 			g, er := gocui.NewGui(gocui.OutputNormal)
@@ -38,7 +37,7 @@ func main() {
 			defer g.Close()
 			mainGui = g
 
-			g.SetManagerFunc(guiLayoutManager(cmds, dir))
+			g.SetManagerFunc(guiLayoutManager(cmds, pwd))
 
 			if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, guiQuit); err != nil {
 				return cli.Exit(err.Error(), 1)
