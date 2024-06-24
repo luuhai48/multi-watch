@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -10,72 +9,55 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/creack/pty"
 	"github.com/jroimartin/gocui"
 )
 
 type Executor struct {
-	Shell   string
 	Command string
 	Dir     string
 
-	cmd  *exec.Cmd
-	stdo io.ReadCloser
-	stde io.ReadCloser
+	cmd *exec.Cmd
 	sync.Mutex
 }
 
 type ExecState struct {
 	Error     error
-	ErrOutput string
 	ProcState string
 }
 
-func NewExecutor(shell string, command string, dir string) (*Executor, error) {
-	_, err := makeCommand(shell, command, dir)
+func NewExecutor(command string, dir string) (*Executor, error) {
+	_, err := makeCommand(command, dir)
 	if err != nil {
 		return nil, err
 	}
 	return &Executor{
-		Shell:   shell,
 		Command: command,
 		Dir:     dir,
 	}, nil
 }
 
-func (e *Executor) start(v *gocui.View) (*exec.Cmd, *bytes.Buffer, *sync.WaitGroup, error) {
+func (e *Executor) start(v *gocui.View) (*exec.Cmd, *sync.WaitGroup, error) {
 	e.Lock()
 	defer e.Unlock()
 
-	cmd, err := makeCommand(e.Shell, e.Command, e.Dir)
+	cmd, err := makeCommand(e.Command, e.Dir)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	e.cmd = cmd
 
-	stdo, err := cmd.StdoutPipe()
+	f, err := pty.Start(cmd)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	stde, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	e.stdo = stdo
-	e.stde = stde
 
-	buff := new(bytes.Buffer)
-	err = cmd.Start()
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 
-	go logOutput(&wg, stde, v)
+	go logOutput(&wg, f, v)
 
-	go logOutput(&wg, stdo, v)
-
-	return cmd, buff, &wg, nil
+	return cmd, &wg, nil
 }
 
 func (e *Executor) running() bool {
@@ -98,7 +80,7 @@ func (e *Executor) Run(v *gocui.View) (*ExecState, error) {
 	if e.cmd != nil {
 		return nil, fmt.Errorf("already running")
 	}
-	cmd, buff, wg, err := e.start(v)
+	cmd, wg, err := e.start(v)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +90,6 @@ func (e *Executor) Run(v *gocui.View) (*ExecState, error) {
 	ret := cmd.Wait()
 	state := &ExecState{
 		Error:     ret,
-		ErrOutput: buff.String(),
 		ProcState: cmd.ProcessState.String(),
 	}
 	e.reset()
@@ -130,63 +111,29 @@ func (e *Executor) Stop() error {
 
 func logOutput(wg *sync.WaitGroup, fp io.ReadCloser, v *gocui.View) {
 	defer wg.Done()
-	r := bufio.NewReader(fp)
 	for {
-		line, _, err := r.ReadLine()
-		if err != nil {
-			return
+		r := bufio.NewReader(fp)
+		for {
+			line, _, err := r.ReadLine()
+			if err != nil {
+				return
+			}
+			writeBytes(v, line)
+			guiUpdate()
 		}
-		writeToGuiAndUpdate(v, string(line))
 	}
-}
-
-func prepCmd(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
 func (e *Executor) sendSignal(sig os.Signal) error {
 	return syscall.Kill(-e.cmd.Process.Pid, sig.(syscall.Signal))
 }
 
-func makeCommand(shell string, command string, dir string) (*exec.Cmd, error) {
-	shcmd, err := CheckShell(shell)
+func makeCommand(command string, dir string) (*exec.Cmd, error) {
+	shcmd, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
-	var cmd *exec.Cmd
-	switch shell {
-	case "bash", "sh", "zsh":
-		cmd = exec.Command(shcmd, "-c", command)
-	case "powershell":
-		cmd = exec.Command(shcmd, "-Command", command)
-	}
+	cmd := exec.Command(shcmd, "exec", command)
 	cmd.Dir = dir
-	prepCmd(cmd)
 	return cmd, nil
-}
-
-var ValidShells = map[string]bool{
-	"bash":       true,
-	"sh":         true,
-	"zsh":        true,
-	"powershell": true,
-}
-
-func CheckShell(shell string) (string, error) {
-	if _, ok := ValidShells[shell]; !ok {
-		return "", fmt.Errorf("unsupported shell: %q", shell)
-	}
-
-	switch shell {
-	case "powershell":
-		if _, err := exec.LookPath("powershell"); err == nil {
-			return "powershell", nil
-		} else if _, err := exec.LookPath("pwsh"); err == nil {
-			return "pwsh", nil
-		} else {
-			return "", fmt.Errorf("powershell/pwsh not on path")
-		}
-	default:
-		return exec.LookPath(shell)
-	}
 }

@@ -24,8 +24,8 @@ func shortCommand(command string) string {
 	return ret
 }
 
-func runProc(cmd string, shellMethod string, dir string, v *gocui.View) error {
-	ex, err := NewExecutor(shellMethod, cmd, dir)
+func runProc(cmd string, dir string, v *gocui.View) error {
+	ex, err := NewExecutor(cmd, dir)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func runProc(cmd string, shellMethod string, dir string, v *gocui.View) error {
 		return state.Error
 	}
 
-	writeToGuiAndUpdate(v, fmt.Sprintf(">> Done (%s)", time.Since(start)))
+	writeString(v, fmt.Sprintf(">> Done (%s)", time.Since(start)))
 
 	return nil
 }

@@ -13,10 +13,17 @@ var (
 	mainGui         *gocui.Gui
 )
 
-func writeToGuiAndUpdate(v *gocui.View, line string) {
+func writeString(v *gocui.View, line string) {
+	fmt.Fprintln(v, line)
+}
+
+func writeBytes(v *gocui.View, line []byte) {
+	fmt.Fprintln(v, string(line))
+}
+
+func guiUpdate() {
 	if mainGui != nil {
 		mainGui.Update(func(g *gocui.Gui) error {
-			fmt.Fprintln(v, line)
 			return nil
 		})
 	}
@@ -54,7 +61,6 @@ func guiLayoutManager(cmds []string, dir string) func(*gocui.Gui) error {
 		}
 
 		// Create windows for each command
-
 		for i, cmd := range cmds {
 			winName := fmt.Sprintf("cmd%d", i)
 
@@ -76,8 +82,9 @@ func guiLayoutManager(cmds []string, dir string) func(*gocui.Gui) error {
 
 				// Run command and write output to view
 				go func(cmd string) {
-					if err := runProc(cmd, "bash", dir, v); err != nil {
-						writeToGuiAndUpdate(v, err.Error())
+					if err := runProc(cmd, dir, v); err != nil {
+						writeString(v, err.Error())
+						guiUpdate()
 					}
 				}(cmd)
 			} else {
